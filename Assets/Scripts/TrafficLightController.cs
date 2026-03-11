@@ -1,5 +1,5 @@
 ﻿using UnityEngine;
-using TMPro; // Bắt buộc phải có cái này để dùng chữ TextMeshPro đếm ngược
+using TMPro;
 
 public class TrafficLightController : MonoBehaviour
 {
@@ -14,25 +14,28 @@ public class TrafficLightController : MonoBehaviour
     public GameObject greenLight;
 
     [Header("🔢 Màn hình đếm ngược")]
-    public TextMeshPro textDemNguoc; // Kéo 3D Text hiển thị giây vào đây
+    public TextMeshPro textDemNguoc;
 
     [Header("⚠️ Vùng nguy hiểm & Hệ thống phạt")]
     public BoxCollider dangerZone;
-    public GameObject congAn;              // Kéo mô hình Công an vào đây
-    public AudioClip amThanhHaiQuayXe;     // Kéo file MP3 "Hải quay xe" vào đây
+    public GameObject congAn;
+    public AudioClip amThanhHaiQuayXe;
     private AudioSource audioSource;
 
     private LightState currentState = LightState.Red;
     private float timer = 0f;
-    private float timeRemaining = 0f; // Biến lưu số giây để hiển thị
-    private bool daBiPhat = false;    // Biến chặn lỗi phát âm thanh đè lên nhau nhiều lần
+    private float timeRemaining = 0f;
+    private bool daBiPhat = false;
 
     enum LightState { Red, Yellow, Green }
 
     void Start()
     {
-        // Tự động thêm loa phát thanh vào Cột đèn
         audioSource = gameObject.AddComponent<AudioSource>();
+
+        // THÊM 2 DÒNG NÀY: Reset lệnh truy nã mỗi khi chơi lại ván mới
+        PoliceChase.coNguoiDaBatDuoc = false;
+        PoliceChase.dangBiTruyNa = false;
 
         if (redLight == null || yellowLight == null || greenLight == null)
         {
@@ -45,12 +48,9 @@ public class TrafficLightController : MonoBehaviour
             dangerZone.isTrigger = true;
         }
 
-        // Tắt công an lúc mới vô game
         if (congAn != null) congAn.SetActive(false);
 
-        // Bắt đầu game với đèn Đỏ
         SetLight(LightState.Red, redTime);
-        Debug.Log("🔴 ĐÈN ĐỎ - GAME BẮT ĐẦU!");
     }
 
     void Update()
@@ -58,7 +58,6 @@ public class TrafficLightController : MonoBehaviour
         timer += Time.deltaTime;
         timeRemaining -= Time.deltaTime;
 
-        // Cập nhật số giây lên màn hình (Làm tròn lên cho đẹp)
         if (textDemNguoc != null)
         {
             textDemNguoc.text = Mathf.CeilToInt(Mathf.Max(0, timeRemaining)).ToString();
@@ -70,7 +69,6 @@ public class TrafficLightController : MonoBehaviour
                 if (timer >= redTime)
                 {
                     SetLight(LightState.Green, greenTime);
-                    Debug.Log("🟢 ĐÈN XANH!");
                 }
                 break;
 
@@ -78,7 +76,6 @@ public class TrafficLightController : MonoBehaviour
                 if (timer >= greenTime)
                 {
                     SetLight(LightState.Yellow, yellowTime);
-                    Debug.Log("🟡 ĐÈN VÀNG!");
                 }
                 break;
 
@@ -86,25 +83,22 @@ public class TrafficLightController : MonoBehaviour
                 if (timer >= yellowTime)
                 {
                     SetLight(LightState.Red, redTime);
-                    Debug.Log("🔴 ĐÈN ĐỎ!");
                 }
                 break;
         }
     }
 
-    // Hàm tối ưu việc chuyển đèn và đổi màu chữ đếm ngược
     void SetLight(LightState newState, float duration)
     {
         currentState = newState;
         timer = 0f;
         timeRemaining = duration;
-        daBiPhat = false; // Đổi đèn thì reset lại trạng thái bắt phạt
+        daBiPhat = false;
 
         redLight.SetActive(newState == LightState.Red);
         yellowLight.SetActive(newState == LightState.Yellow);
         greenLight.SetActive(newState == LightState.Green);
 
-        // Đổi màu text đếm ngược cho ngầu
         if (textDemNguoc != null)
         {
             if (newState == LightState.Red) textDemNguoc.color = Color.red;
@@ -113,12 +107,12 @@ public class TrafficLightController : MonoBehaviour
         }
     }
 
-    // XỬ LÝ KHI SHIPPER CÁN VẠCH
-    private void OnTriggerEnter(Collider other)
+    // --- ĐÃ ĐỔI THÀNH HÀM PUBLIC ĐỂ CÁI CUBE GỌI ĐẾN ---
+    public void XuLyVotDen()
     {
-        if (other.CompareTag("Player") && currentState == LightState.Red && !daBiPhat)
+        if (currentState == LightState.Red && !daBiPhat)
         {
-            daBiPhat = true; // Chốt đơn phạt, không cho trigger kêu liên tục
+            daBiPhat = true;
             Debug.LogWarning("🚨 VƯỢT ĐÈN ĐỎ! CÔNG AN RA!");
 
             // 1. Bật loa "Hải quay xe"
@@ -127,14 +121,14 @@ public class TrafficLightController : MonoBehaviour
                 audioSource.PlayOneShot(amThanhHaiQuayXe);
             }
 
-            // 2. Thả Công an ra rượt đuổi
+            // 2. Thả Công an ẩn ra (Nếu có)
             if (congAn != null)
             {
-                // Cài vị trí công an hiện ra (Tùy chọn: có thể để công an đứng chờ sẵn ở góc ngã tư)
                 congAn.SetActive(true);
             }
 
-            // LƯU Ý: Không dùng Time.timeScale = 0f nữa để game chạy tiếp cho cảnh sát rượt!
+            // 3. KÍCH HOẠT LỆNH TRUY NÃ TOÀN CẦU CHO TẤT CẢ CÔNG AN
+            PoliceChase.dangBiTruyNa = true;
         }
     }
 }

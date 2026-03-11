@@ -1,5 +1,5 @@
 ﻿using UnityEngine;
-
+using UnityEngine.UI; // Khai báo dòng này để Unity gọi UI
 public class LaiXeDonGian : MonoBehaviour
 {
     [Header("--- 1. CÀI ĐẶT XE ---")]
@@ -26,6 +26,10 @@ public class LaiXeDonGian : MonoBehaviour
     private float tocDoHienTai = 0f;
     private bool dangLaiXe = false;
 
+    [Header("--- UI CHUYỂN ĐỔI ---")]
+    public Image iconGocPhai; // Kéo cái UI Image cặp chân vào đây
+    public Sprite iconDiBo;   // Kéo file ảnh cặp chân màu tím vào
+    public Sprite iconXeMay;  // Kéo file ảnh chiếc xe máy vào
     void Start()
     {
         rb = GetComponent<Rigidbody>();
@@ -113,7 +117,7 @@ public class LaiXeDonGian : MonoBehaviour
         dangLaiXe = true;
         nhanVatDiBo.SetActive(false); nhanVatLaiXe.SetActive(true);
         camDiBo.SetActive(false); camLaiXe.SetActive(true);
-
+        if (iconGocPhai != null) iconGocPhai.sprite = iconXeMay; // Chuyển sang hình xe
         // Bật vật lý bình thường để chạy
         rb.isKinematic = false;
         rb.linearDamping = 0.05f; // Nhả phanh tay (Về số nhỏ để xe lướt đi)
@@ -129,7 +133,7 @@ public class LaiXeDonGian : MonoBehaviour
         }
         nhanVatDiBo.SetActive(true); nhanVatLaiXe.SetActive(false);
         camLaiXe.SetActive(false); camDiBo.SetActive(true);
-
+        if (iconGocPhai != null) iconGocPhai.sprite = iconDiBo; // Trả về hình cái chân
         tocDoHienTai = 0;
 
         rb.isKinematic = false;    // Vẫn cho trọng lực hoạt động

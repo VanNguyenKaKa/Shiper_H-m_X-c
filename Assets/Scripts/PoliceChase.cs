@@ -1,89 +1,158 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using System.Collections; // Bắt buộc phải có để dùng IENumerator (Kịch bản thời gian)
+using System.Collections;
 
 public class PoliceChase : MonoBehaviour
 {
-    [Header("--- MỤC TIÊU ---")]
-    public Transform shipper;
+    [Header("--- CÔNG AN ---")]
+    public Animator congAnAnim;
     public float tocDoChay = 15f;
+    // Đã xóa khoangCachPhatHien! Có bao nhiêu rượt bấy nhiêu!
 
-    [Header("--- HOẠT ẢNH (ANIMATOR) ---")]
-    public Animator congAnAnim;    // Kéo chú Công an vào đây
-    public Animator shipperAnim;   // Kéo nhân vật Shipper vào đây
+    [Header("--- NHÂN VẬT (SHIPPER) ---")]
+    public Transform nhanVat;
+    public Animator nhanVatAnim;
+    public Rigidbody nhanVatRb;
+    public MonoBehaviour scriptDiBo;
+
+    [Header("--- XE MÁY (MOTORBIKE) ---")]
+    public Transform xe;
+    public Rigidbody xeRb;
+    public MonoBehaviour scriptLaiXe;
 
     [Header("--- ÂM THANH KỊCH BẢN ---")]
-    public AudioClip voiceBoMayLaAi; // Tiếng: "Mày biết bố mày là ai không?"
-    public AudioClip soundBop;       // Tiếng: "Bốp!"
-    public AudioClip voiceLaoToet;   // Tiếng: "Láo toét!"
+    public AudioClip voiceBoMayLaAi;
+    public AudioClip soundBop1;
+    public AudioClip soundBop2;
+    public AudioClip voiceLaoToet;
     private AudioSource audioSource;
 
-    private bool daBatDuoc = false;  // Biến ghi nhớ để không bị chạy kịch bản 2 lần
+    [Header("--- ĐỒNG BỘ THỜI GIAN (CHỈNH ĐỂ KHỚP) ---")]
+    public float thoiGianShipperNoi = 2.0f;
+    public float thoiGianVungTayDanh1 = 0.4f;
+    public float thoiGianNghiGiua2Dam = 0.5f;
+    public float thoiGianVungTayDanh2 = 0.4f;
+    public float thoiGianCongAnChui = 2.0f;
+
+    // --- BIẾN QUẢN LÝ ---
+    private bool daBatDuoc = false;
+    private bool dangLaiXe = false;
+    private bool daBatAnimationChay = false;
+
+    // BIẾN TOÀN CẦU: Dùng chung cho 100 ông
+    public static bool coNguoiDaBatDuoc = false;
+    public static bool dangBiTruyNa = false;
 
     void Start()
     {
-        // Tự động thêm loa phát thanh cho Công an
         audioSource = gameObject.AddComponent<AudioSource>();
+        // ĐÃ XÓA 2 DÒNG RESET Ở ĐÂY ĐỂ ỔNG KHÔNG BỊ MẤT TRÍ NHỚ NỮA!
     }
 
     void Update()
     {
-        // Nếu chưa bắt được thì cứ nhắm thẳng Shipper mà rượt
-        if (shipper != null && !daBatDuoc)
+        // 1. Nếu có 1 ông tóm được fen rồi -> Mấy ông khác đứng dòm, không chạy nữa
+        if (coNguoiDaBatDuoc && !daBatDuoc)
         {
-            Vector3 diemNhin = new Vector3(shipper.position.x, transform.position.y, shipper.position.z);
+            if (congAnAnim != null) congAnAnim.SetTrigger("CongAnDungLai");
+            return;
+        }
+
+        // 2. CHẾ ĐỘ 5 SAO: Cứ bị truy nã là TẤT CẢ lao vào rượt!
+        if (dangBiTruyNa && nhanVat != null && !daBatDuoc)
+        {
+            // Bật dáng chạy 1 lần
+            if (!daBatAnimationChay && congAnAnim != null)
+            {
+                congAnAnim.SetTrigger("CongAnChay");
+                daBatAnimationChay = true;
+            }
+
+            // Ép vị trí chạy lao tới Shipper
+            Vector3 diemNhin = new Vector3(nhanVat.position.x, transform.position.y, nhanVat.position.z);
             transform.LookAt(diemNhin);
-            transform.position = Vector3.MoveTowards(transform.position, shipper.position, tocDoChay * Time.deltaTime);
+            transform.position = Vector3.MoveTowards(transform.position, diemNhin, tocDoChay * Time.deltaTime);
         }
     }
 
     private void OnTriggerEnter(Collider other)
     {
-        if (other.CompareTag("Player") && !daBatDuoc)
+        if (other.CompareTag("Player") && !daBatDuoc && !coNguoiDaBatDuoc)
         {
-            daBatDuoc = true; // Đánh dấu là đã tóm được, NGỪNG RƯỢT ĐUỔI!
-
-            // Bắt đầu chạy đoạn phim cắt cảnh
-            StartCoroutine(KichBanTauHai(other.gameObject));
+            coNguoiDaBatDuoc = true;
+            daBatDuoc = true;
+            if (xe != null && nhanVat.IsChildOf(xe)) { dangLaiXe = true; } else { dangLaiXe = false; }
+            StartCoroutine(KichBanTauHai());
         }
     }
 
-    IEnumerator KichBanTauHai(GameObject xeShipper)
+    IEnumerator KichBanTauHai()
     {
-        // 1. ĐÓNG BĂNG XE SHIPPER LẠI (Không cho chạy trốn nữa)
-        Rigidbody rbXe = xeShipper.GetComponentInParent<Rigidbody>();
-        if (rbXe != null) rbXe.isKinematic = true; // Khóa cứng vật lý của xe
+        if (scriptLaiXe != null) scriptLaiXe.enabled = false;
+        if (scriptDiBo != null) scriptDiBo.enabled = false;
 
-        // Xoay mặt Công an nhìn thẳng vào Shipper
-        Vector3 nhinShipper = new Vector3(shipper.position.x, transform.position.y, shipper.position.z);
-        transform.LookAt(nhinShipper);
+        if (nhanVat != null)
+        {
+            CharacterController cc = nhanVat.GetComponent<CharacterController>();
+            if (cc != null) cc.enabled = false;
+        }
 
-        // 2. SHIPPER CHỈ TAY VÀ NÓI
-        if (shipperAnim != null) shipperAnim.SetTrigger("ShipperBoMayLaAi");
+        if (xeRb != null) { xeRb.linearVelocity = Vector3.zero; xeRb.angularVelocity = Vector3.zero; }
+        if (nhanVatRb != null) { nhanVatRb.linearVelocity = Vector3.zero; nhanVatRb.angularVelocity = Vector3.zero; }
+
+        if (nhanVat != null)
+        {
+            Vector3 nhinNhanVat = new Vector3(nhanVat.position.x, transform.position.y, nhanVat.position.z);
+            transform.LookAt(nhinNhanVat);
+            Vector3 nhinCongAn = new Vector3(transform.position.x, nhanVat.position.y, transform.position.z);
+            nhanVat.LookAt(nhinCongAn);
+        }
+
+        if (congAnAnim != null) congAnAnim.SetTrigger("CongAnDungLai");
+
+        if (nhanVatAnim != null)
+        {
+            nhanVatAnim.SetFloat("InputX", 0f);
+            nhanVatAnim.SetFloat("InputZ", 0f);
+            nhanVatAnim.SetTrigger("ShipperBoMayLaAi");
+        }
         if (voiceBoMayLaAi != null) audioSource.PlayOneShot(voiceBoMayLaAi);
+        yield return new WaitForSeconds(thoiGianShipperNoi);
 
-        // Đợi 2.5 giây cho Shipper nói xong (Bạn có thể chỉnh số này cho khớp file ghi âm)
-        yield return new WaitForSeconds(2.5f);
-
-        // 3. CÔNG AN VUNG TAY ĐÁNH
         if (congAnAnim != null) congAnAnim.SetTrigger("CongAnDanh");
+        yield return new WaitForSeconds(thoiGianVungTayDanh1);
+        if (soundBop1 != null) audioSource.PlayOneShot(soundBop1);
 
-        // Đợi 0.4 giây cho cái tay vung trúng mặt rồi mới phát tiếng "BỐP"
-        yield return new WaitForSeconds(0.4f);
-        if (soundBop != null) audioSource.PlayOneShot(soundBop);
+        yield return new WaitForSeconds(thoiGianNghiGiua2Dam);
 
-        // Đợi 1 giây để thu tay về
-        yield return new WaitForSeconds(1.0f);
+        if (congAnAnim != null) congAnAnim.SetTrigger("CongAnDanh2");
+        yield return new WaitForSeconds(thoiGianVungTayDanh2);
+        if (soundBop2 != null) audioSource.PlayOneShot(soundBop2);
 
-        // 4. CÔNG AN CHỈ TAY VÀ CHỬI
+        if (nhanVatAnim != null) nhanVatAnim.SetTrigger("ShipperTe");
+
+        if (nhanVat != null)
+        {
+            if (dangLaiXe)
+            {
+                nhanVat.SetParent(null);
+                if (xeRb != null)
+                {
+                    Vector3 huongDayXe = (xe.position - transform.position).normalized;
+                    xeRb.AddForce(huongDayXe * 150f, ForceMode.Impulse);
+                }
+            }
+            if (nhanVatRb != null) nhanVatRb.isKinematic = true;
+        }
+
+        yield return new WaitForSeconds(1.5f);
+
         if (congAnAnim != null) congAnAnim.SetTrigger("CongAnLaoToet");
         if (voiceLaoToet != null) audioSource.PlayOneShot(voiceLaoToet);
 
-        // Đợi 2 giây cho Công an nói xong
-        yield return new WaitForSeconds(2.0f);
+        yield return new WaitForSeconds(thoiGianCongAnChui);
 
-        // 5. GAME OVER VÀ CHƠI LẠI
-        Debug.Log("GAME OVER! MÀN TẤU HÀI KẾT THÚC!");
+        Debug.Log("GAME OVER!");
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
 }
