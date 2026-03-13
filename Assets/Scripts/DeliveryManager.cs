@@ -4,6 +4,9 @@ using System.Collections;
 
 public class DeliveryManager : MonoBehaviour
 {
+    // --- CHÌA KHÓA KHO BẠC (SINGLETON) ---
+    public static DeliveryManager instance;
+
     [Header("--- Giao Diện Cố Định ---")]
     public TextMeshProUGUI missionText;
     public TextMeshProUGUI moneyText;
@@ -16,7 +19,7 @@ public class DeliveryManager : MonoBehaviour
     public float lechSangPhai = 0.8f;
 
     [Header("--- Âm Thanh (Voice & Hiệu ứng) ---")]
-    public AudioClip soundTing;         // Tiếng tiền (Dùng chung)
+    public AudioClip soundTing;
     private AudioSource audioSource;
 
     [Header("--- Dữ Liệu Giao Nhận ---")]
@@ -29,7 +32,7 @@ public class DeliveryManager : MonoBehaviour
     [Header("--- KHÁCH HÀNG NPC ---")]
     public Animator[] khachHangAnimators;
     public GameObject[] khachHangHandItems;
-    public AudioClip[] voiceKhachGoi;    // Tiếng khách gọi từ xa
+    public AudioClip[] voiceKhachGoi;
     public float khoangCachChao = 15.0f;
     private bool daChaoKhach = false;
 
@@ -40,10 +43,10 @@ public class DeliveryManager : MonoBehaviour
     public string[] thoaiKhachHang;
 
     [Header("--- LỒNG TIẾNG (VOICE) CHO TỪNG ĐƠN ---")]
-    public AudioClip[] voiceShipperLucNhan; // Tiếng Shipper đọc đơn
-    public AudioClip[] voiceChuQuan;        // Tiếng Chủ quán trả lời
-    public AudioClip[] voiceShipperLucGiao; // Tiếng Shipper gọi khách
-    public AudioClip[] voiceKhachHang;      // Tiếng Khách cảm ơn
+    public AudioClip[] voiceShipperLucNhan;
+    public AudioClip[] voiceChuQuan;
+    public AudioClip[] voiceShipperLucGiao;
+    public AudioClip[] voiceKhachHang;
 
     [Header("--- HOẠT ẢNH (ANIMATION) TỪNG ĐƠN ---")]
     public Animator shipperAnimator;
@@ -51,16 +54,23 @@ public class DeliveryManager : MonoBehaviour
     public string[] animGiaoHang;
     public float thoiGianDienAnim = 2.0f;
 
-    [Header("--- Xe Mới (Phần Thưởng) ---")]
+    [Header("--- Xe Mới (Phần Thưởng Cũ) ---")]
     public GameObject xeSH;
     private bool daMoKhoaSH = false;
 
-    private int tongTien = 0;
+    // ĐÃ ĐỔI THÀNH PUBLIC ĐỂ TEST CHO DỄ (Cho sẵn 150$ vô test tiệm xe luôn)
+    public int tongTien = 150;
     private int currentOrderIndex = 0;
     private Transform nguoiDangNoi;
 
     enum DeliveryState { DangCho, DiLayHang, DiGiaoHang }
     private DeliveryState currentState = DeliveryState.DangCho;
+
+    // --- KHỞI TẠO SINGLETON TỰ ĐỘNG ---
+    void Awake()
+    {
+        if (instance == null) instance = this;
+    }
 
     void Start()
     {
@@ -99,16 +109,8 @@ public class DeliveryManager : MonoBehaviour
                 if (khoangCach <= khoangCachChao && !daChaoKhach)
                 {
                     daChaoKhach = true;
-
-                    if (khachHangAnimators.Length > currentOrderIndex && khachHangAnimators[currentOrderIndex] != null)
-                    {
-                        khachHangAnimators[currentOrderIndex].SetTrigger("KhachGoi");
-                    }
-
-                    if (voiceKhachGoi.Length > currentOrderIndex && voiceKhachGoi[currentOrderIndex] != null)
-                    {
-                        audioSource.PlayOneShot(voiceKhachGoi[currentOrderIndex]);
-                    }
+                    if (khachHangAnimators.Length > currentOrderIndex && khachHangAnimators[currentOrderIndex] != null) khachHangAnimators[currentOrderIndex].SetTrigger("KhachGoi");
+                    if (voiceKhachGoi.Length > currentOrderIndex && voiceKhachGoi[currentOrderIndex] != null) audioSource.PlayOneShot(voiceKhachGoi[currentOrderIndex]);
                 }
             }
         }
@@ -126,10 +128,7 @@ public class DeliveryManager : MonoBehaviour
 
     public void DaDenDiemLayHang()
     {
-        if (currentState == DeliveryState.DiLayHang)
-        {
-            StartCoroutine(KichBanLayHang());
-        }
+        if (currentState == DeliveryState.DiLayHang) StartCoroutine(KichBanLayHang());
     }
 
     IEnumerator KichBanLayHang()
@@ -140,15 +139,12 @@ public class DeliveryManager : MonoBehaviour
         string cauShipper = (thoaiShipperLucNhan.Length > currentOrderIndex && !string.IsNullOrEmpty(thoaiShipperLucNhan[currentOrderIndex])) ? thoaiShipperLucNhan[currentOrderIndex] : "Em nhận đơn ạ.";
         string cauShop = (thoaiChuQuan.Length > currentOrderIndex && !string.IsNullOrEmpty(thoaiChuQuan[currentOrderIndex])) ? thoaiChuQuan[currentOrderIndex] : "Oke em, đơn của em đây.";
 
-        // 1. Shipper nói & Phát tiếng
         nguoiDangNoi = player;
         dialogueFrame.SetActive(true);
         dialogueText.text = "<color=#00FF00><b>Shipper:</b></color>\n" + cauShipper;
-        if (voiceShipperLucNhan.Length > currentOrderIndex && voiceShipperLucNhan[currentOrderIndex] != null)
-            audioSource.PlayOneShot(voiceShipperLucNhan[currentOrderIndex]);
+        if (voiceShipperLucNhan.Length > currentOrderIndex && voiceShipperLucNhan[currentOrderIndex] != null) audioSource.PlayOneShot(voiceShipperLucNhan[currentOrderIndex]);
         yield return new WaitForSeconds(2.0f);
 
-        // 2. Chạy Anim lấy hàng
         dialogueFrame.SetActive(false);
         if (shipperAnimator != null && animLayHang.Length > currentOrderIndex && !string.IsNullOrEmpty(animLayHang[currentOrderIndex]))
         {
@@ -156,15 +152,12 @@ public class DeliveryManager : MonoBehaviour
             yield return new WaitForSeconds(thoiGianDienAnim);
         }
 
-        if (handItems.Length > currentOrderIndex && handItems[currentOrderIndex] != null)
-            handItems[currentOrderIndex].SetActive(true);
+        if (handItems.Length > currentOrderIndex && handItems[currentOrderIndex] != null) handItems[currentOrderIndex].SetActive(true);
 
-        // 3. Chủ quán nói & Phát tiếng
         nguoiDangNoi = pickupPoints[currentOrderIndex].transform;
         dialogueFrame.SetActive(true);
         dialogueText.text = "<color=#FFFF00><b>Chủ quán:</b></color>\n" + cauShop;
-        if (voiceChuQuan.Length > currentOrderIndex && voiceChuQuan[currentOrderIndex] != null)
-            audioSource.PlayOneShot(voiceChuQuan[currentOrderIndex]);
+        if (voiceChuQuan.Length > currentOrderIndex && voiceChuQuan[currentOrderIndex] != null) audioSource.PlayOneShot(voiceChuQuan[currentOrderIndex]);
         yield return new WaitForSeconds(2.5f);
 
         dialogueFrame.SetActive(false);
@@ -177,10 +170,7 @@ public class DeliveryManager : MonoBehaviour
 
     public void DaDenDiemGiaoHang()
     {
-        if (currentState == DeliveryState.DiGiaoHang)
-        {
-            StartCoroutine(KichBanGiaoHang());
-        }
+        if (currentState == DeliveryState.DiGiaoHang) StartCoroutine(KichBanGiaoHang());
     }
 
     IEnumerator KichBanGiaoHang()
@@ -191,15 +181,12 @@ public class DeliveryManager : MonoBehaviour
         string cauShipper = (thoaiShipperLucGiao.Length > currentOrderIndex && !string.IsNullOrEmpty(thoaiShipperLucGiao[currentOrderIndex])) ? thoaiShipperLucGiao[currentOrderIndex] : "Dạ, em giao hàng ạ.";
         string cauKhach = (thoaiKhachHang.Length > currentOrderIndex && !string.IsNullOrEmpty(thoaiKhachHang[currentOrderIndex])) ? thoaiKhachHang[currentOrderIndex] : "Chị cảm ơn em nhé!";
 
-        // 1. Shipper nói & Phát tiếng
         nguoiDangNoi = player;
         dialogueFrame.SetActive(true);
         dialogueText.text = "<color=#00FF00><b>Shipper:</b></color>\n" + cauShipper;
-        if (voiceShipperLucGiao.Length > currentOrderIndex && voiceShipperLucGiao[currentOrderIndex] != null)
-            audioSource.PlayOneShot(voiceShipperLucGiao[currentOrderIndex]);
+        if (voiceShipperLucGiao.Length > currentOrderIndex && voiceShipperLucGiao[currentOrderIndex] != null) audioSource.PlayOneShot(voiceShipperLucGiao[currentOrderIndex]);
         yield return new WaitForSeconds(2.0f);
 
-        // 2. Shipper diễn Anim đưa đồ
         dialogueFrame.SetActive(false);
         if (shipperAnimator != null && animGiaoHang.Length > currentOrderIndex && !string.IsNullOrEmpty(animGiaoHang[currentOrderIndex]))
         {
@@ -207,53 +194,45 @@ public class DeliveryManager : MonoBehaviour
             yield return new WaitForSeconds(thoiGianDienAnim);
         }
 
-        // 3. Chuyền đồ, Khách nhận đồ
-        if (handItems.Length > currentOrderIndex && handItems[currentOrderIndex] != null)
-            handItems[currentOrderIndex].SetActive(false);
+        if (handItems.Length > currentOrderIndex && handItems[currentOrderIndex] != null) handItems[currentOrderIndex].SetActive(false);
+        if (khachHangHandItems.Length > currentOrderIndex && khachHangHandItems[currentOrderIndex] != null) khachHangHandItems[currentOrderIndex].SetActive(true);
+        if (khachHangAnimators.Length > currentOrderIndex && khachHangAnimators[currentOrderIndex] != null) khachHangAnimators[currentOrderIndex].SetTrigger("KhachNhan");
 
-        if (khachHangHandItems.Length > currentOrderIndex && khachHangHandItems[currentOrderIndex] != null)
-            khachHangHandItems[currentOrderIndex].SetActive(true);
-
-        if (khachHangAnimators.Length > currentOrderIndex && khachHangAnimators[currentOrderIndex] != null)
-            khachHangAnimators[currentOrderIndex].SetTrigger("KhachNhan");
-
-        // 4. Khách hàng cảm ơn & Phát tiếng
         nguoiDangNoi = deliveryPoints[currentOrderIndex].transform;
         dialogueFrame.SetActive(true);
         dialogueText.text = "<color=#00FFFF><b>Khách hàng:</b></color>\n" + cauKhach;
-        if (voiceKhachHang.Length > currentOrderIndex && voiceKhachHang[currentOrderIndex] != null)
-            audioSource.PlayOneShot(voiceKhachHang[currentOrderIndex]);
+        if (voiceKhachHang.Length > currentOrderIndex && voiceKhachHang[currentOrderIndex] != null) audioSource.PlayOneShot(voiceKhachHang[currentOrderIndex]);
         yield return new WaitForSeconds(2.5f);
         dialogueFrame.SetActive(false);
 
-        // 5. Cộng tiền + Kêu Ting
         if (soundTing != null) audioSource.PlayOneShot(soundTing);
         tongTien += 50;
         UpdateMoneyUI();
         missionText.text = "Giao thành công! +50 VNĐ";
 
         yield return new WaitForSeconds(2.0f);
-
         deliveryPoints[currentOrderIndex].SetActive(false);
         currentOrderIndex++;
 
-        if (tongTien >= 300 && !daMoKhoaSH)
-            Invoke("MoKhoaXeMoi", 1f);
-        else
-            Invoke("PhatDonHangMoi", 2f);
+        Invoke("PhatDonHangMoi", 2f);
     }
 
-    void MoKhoaXeMoi()
+    public void UpdateMoneyUI()
     {
-        daMoKhoaSH = true;
-        missionText.text = "🎉 MỞ KHÓA XE SH350i! 🎉";
-        if (xeSH != null) xeSH.SetActive(true);
-        Invoke("PhatDonHangMoi", 5f);
+        if (moneyText != null) moneyText.text = "$ " + tongTien.ToString("N0") + "";
     }
 
-    void UpdateMoneyUI()
+    // ==========================================
+    // MÁY QUẸT THẺ ĐỂ CỬA HÀNG XE MÁY GỌI SANG
+    // ==========================================
+    public bool KiemTraVaTruTien(int soTienCanTru)
     {
-        if (moneyText != null)
-            moneyText.text = "$ " + tongTien.ToString("N0") + "";
+        if (tongTien >= soTienCanTru)
+        {
+            tongTien -= soTienCanTru;
+            UpdateMoneyUI(); // Ép cập nhật lại cái bảng UI 99999 liền lập tức!
+            return true;
+        }
+        return false;
     }
 }
